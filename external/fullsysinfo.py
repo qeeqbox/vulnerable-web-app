@@ -1,3 +1,17 @@
+#!/usr/bin/env python
+
+"""
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+"""
+
 from psutil import boot_time,cpu_count, cpu_freq, virtual_memory, cpu_percent, disk_partitions, disk_usage, net_if_addrs, net_io_counters, process_iter
 from datetime import datetime
 from contextlib import suppress
