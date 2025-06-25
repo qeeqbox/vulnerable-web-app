@@ -39,7 +39,7 @@ for partition in disk_partitions():
 for name, addresses in net_if_addrs().items():
     for address in addresses:
         with suppress(Exception):
-            info.append(f"{name} Family: {address.family}, Address: {address.address}, Netmask: {address.netmask}, Broadcast: {address.broadcast}, PTP: {address.ptp}")
+            info.append(f"Interface {name}, Family: {address.family}, Address: {address.address}, Netmask: {address.netmask}, Broadcast: {address.broadcast}, PTP: {address.ptp}")
 
 info.extend([f"Total Network Bytes Sent: {net_io_counters().bytes_sent/(1024**3):.2f}GB",
              f"Total Network Bytes Received: {net_io_counters().bytes_recv/(1024**3):.2f}GB"])
