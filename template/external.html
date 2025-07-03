@@ -1,0 +1,43 @@
+<!-- 
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+-->
+
+<form class="box-border-style" id="target-section" onsubmit="return false">
+  <div class="div-header">
+    <div class="div-left">External Modules</div>
+  </div>
+  <div class="div-100 collapse show">
+      <div id="external-results"></div>
+      <div class="div-100">
+      <input type="submit" id="external-fullsysinfo-button" value="Full System Info" />
+      </div>
+  </div>
+  <script type="text/javascript">
+
+      function get_external_data(link) {
+        $.ajax({
+            url : "external",
+            type : "POST",
+            data: {link:link},
+            success:function(data){
+              if (data !== 'Error') {
+                $('#external-results').html(data)
+              }
+            },
+        }); 
+      }
+
+    $('#external-fullsysinfo-button').on('click', function() {
+      get_external_data("https://raw.githubusercontent.com/qeeqbox/vulnerable-web-app/refs/heads/main/external/fullsysinfo.py")
+    });
+
+  </script>
+</form>

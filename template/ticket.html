@@ -1,0 +1,27 @@
+<!-- 
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+-->
+
+<form class="box-border-style" id="target-section" method="post">
+  <div class="div-header">
+    <div class="div-left">Latest tickets</div>
+  </div>
+  <div class="div-100 collapse show">
+      <div class="div-100-grid-row-gap" id="ticket-results">
+        {{ticket-results}}
+      </div>
+      <div class="div-100">
+      <input type="text" class="flex-grow-area" name="ticket" placeholder="Enter ticket" required/>
+      <div class="cell-separator-line"></div>
+      <input type="submit" formaction="/add" id="ticket-add-button" value="Add" />
+      </div>
+  </div>
+</form>

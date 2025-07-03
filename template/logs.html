@@ -1,0 +1,67 @@
+<!-- 
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+-->
+
+<div class="box-border-style" id="target-section" method="get">
+  <div class="div-header">
+    <div class="div-left">Logs</div>
+  </div>
+  <div class="div-100 collapse show">
+      <div id="logs-results">
+        {{logs-results}}
+      </div>
+      <div class="div-100">
+        <div class="flex-and-grow">
+          <input type="text" class="flex-grow-area" id="logs-search-text" placeholder="Enter string or pattern (Default is .*)" required/>
+          <div class="cell-separator-line"></div>
+          <input type="submit" formaction="/logs" id="logs-search-button" value="Search" />
+          <div class="cell-separator"></div>
+          <div>or</div>
+          <div class="cell-separator"></div>
+        </div>
+        <form class="flex">
+          <input type="hidden" name="file" value="logs/httpd.log">
+          <input type="submit" formaction="/logs" id="logs-open-full-logs-button" value="Open Full Logs" />
+        </form>
+      </div>
+  </div>
+  <script type="text/javascript">
+
+      function logs_search(search) {
+        $.ajax({
+            url : "logs",
+            type : "get",
+            data: {search:search},
+            success:function(data){
+              if (data !== 'Error') {
+                $('#logs-results').html(data)
+              }
+            },
+        }); 
+      }
+
+      $('#logs-search-button').on('click', function() {
+        if ($('#logs-search-text').val() !== "") {
+            logs_search($('#logs-search-text').val())
+            }
+        })
+
+      $('#logs-search-text').on('keypress', function(e) {
+          if (e.key === "Enter" || e.keyCode === 13){
+            e.preventDefault()
+            if ($('#logs-search-text').val() !== "") {
+              logs_search($('#logs-search-text').val())
+            }
+        }
+      })
+
+  </script>
+</div>

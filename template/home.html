@@ -1,0 +1,581 @@
+<!-- 
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+-->
+
+<html>
+  <meta charset="utf-8" />
+  <title>QeeqBox - Vulnerable Web App</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-2.1.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.bundle.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <style>
+  
+    /*All*/
+    :root {
+      --text-color: rgb(223, 131, 2) !important;
+      --text-color-light: #d0d0d0 !important;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      background-color: #212222;
+    }
+
+    header {
+      background-color: #2b2c2c;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      overflow: hide;
+      box-shadow: 0 8px 5px rgba(0, 0, 0, .08);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    body>* {
+      font-family: monospace !important;
+      font-size: 12px !important;
+      line-height: normal;
+      cursor: default !important;
+      color: #d0d0d0 !important;
+    }
+
+    th {
+      text-align: left;
+      font-weight: normal !important;
+      background-color: #383939 !important;
+    }
+
+    table {
+      color: #d0d0d0 !important;
+      font-size: 12px !important;
+      margin-bottom: 20px;
+      border: 0;
+      box-shadow: none;
+      -webkit-border-radius: 2px !important;
+      border-radius: 2px !important;
+      width: 100%;
+    }
+
+    tr {
+      border-bottom: 1px solid #3c3c3c;
+    }
+
+    tr:first-child {
+      border-top: none;
+    }
+
+    td:not(:last-child),
+    th:not(:last-child) {
+      padding-right: 15px;
+    }
+
+    tr:last-child {
+      border-bottom: none;
+    }
+
+    input[type='checkbox'] {
+      -webkit-appearance: none;
+      -webkit-box-shadow: none;
+      -moz-box-shadow: none;
+      box-shadow: none;
+      padding: 5px;
+      height: 5px;
+      color: #c0c0c0;
+      border: 1px solid #b4b4b4;
+      border-radius: 2px !important;
+      outline: none;
+    }
+
+    input[type='checkbox']:checked {
+      position: relative;
+    }
+
+    input[type='checkbox']:checked:before {
+      position: absolute;
+      display: block;
+      background: none #b4b4b4;
+      content: '';
+      height: 8px;
+      width: 8px;
+      left: 1px;
+      top: 1px;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      background-color: #383939 !important;
+      -webkit-border-radius: 2px !important;
+      border-radius: 2px !important;
+      border: none;
+      height: 26px;
+      padding: 3px 6px 3px 6px !important;
+      color: #d0d0d0 !important;
+      font-size: 12px;
+    }
+
+    input[type="button"],
+    input[type="submit"] {
+      border: 0;
+      background-color: #383939 !important;
+      box-shadow: none;
+      -webkit-border-radius: 2px !important;
+      border-radius: 2px !important;
+      color: #d0d0d0 !important;
+      height: 26px;
+      border: none;
+      font-size: 12px;
+    }
+
+    *:focus {
+      outline: none;
+    }
+
+    /*Nav bar*/
+    header .navbar {
+      height: 50px;
+    }
+
+    header .navbar .navbar-brand {
+      color: var(--text-color);
+    }
+
+    header .navbar .navbar-brand:hover {
+      color: var(--text-color);
+    }
+
+    header .navbar-nav {
+      flex-direction: inherit !important;
+    }
+
+    header .nav-item {
+      font-size: 14px;
+      padding-left: 15px;
+    }
+
+    header .nav-item a {
+      color: #d0d0d0 !important;
+    }
+
+    /*Spinner*/
+    @keyframes spinner {
+      0% {
+        stroke-dasharray: 0 0 300 300;
+      }
+
+      50% {
+        stroke-dasharray: 0 150 300 300;
+      }
+
+      75% {
+        stroke-dasharray: 150 150 150 150;
+      }
+
+      100% {
+        stroke-dasharray: 300 300 150 150;
+      }
+    }
+
+    #hex-spinner-section {
+      position: fixed;
+      z-index: 99999;
+      width: 100%;
+      height: 100%;
+      background: #212222;
+      opacity: .9;
+      display: none;
+    }
+
+    #hex-spinner-section .hex-spinner {
+      width: 140px;
+      height: 140px;
+      animation: spinner 2s linear infinite;
+    }
+
+    #hex-spinner-section .waiting-box {
+      font-family: monospace !important;
+      font-size: 10px !important;
+      color: var(--text-color-light);
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    #hex-spinner-section .logs {
+      padding-top: 20px
+    }
+
+    #hex-spinner-section .logs_cancel {
+      padding-top: 10px;
+      display: none;
+    }
+
+    /*Main app + all sections settings*/
+    .icterid-app-wrapper {
+      display: flex;
+      margin-left: auto;
+      margin-top: 50px;
+      padding-top: 20px;
+      overflow-y: auto !important;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: #aa6400 #272c2e;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .icterid-app {
+      width: 95%;
+    }
+
+    .icterid-app .cell-separator {
+      width: 15px;
+    }
+
+    .icterid-app .cell-separator-line {
+      width: 2px;
+      margin-left: 12px;
+      margin-right: 12px;
+      height: 26px;
+      background-color: #383939 !important
+    }
+
+    .icterid-app .div-right {
+      flex: 1;
+      margin-left: 10px !important;
+    }
+
+    .icterid-app .div-left {
+      font-size: 16px;
+      line-height: 16px;
+    }
+
+    .icterid-app .div-header {
+      display: flex;
+      height: 15px;
+      color: var(--text-color);
+      margin-bottom: 20px;
+    }
+
+    .icterid-app .div-100 {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    .icterid-app .div-100-grid-row-gap {
+      display: grid;
+      row-gap: 10px;
+    }
+
+    .icterid-app .div-100-grid-column-gap {
+      display: flex;
+      column-gap: 10px;
+    }
+
+    .icterid-app .div-100-column-gap {
+      grid-column-gap: 10px;
+    }
+
+    .icterid-app .div-100>* {
+      margin-top: 5px;
+      margin-bottom: 5px;
+    }
+
+    .icterid-app .flex-grow-area {
+      flex-grow: 1;
+    }
+
+    .icterid-app .flex {
+      display: flex !important;
+    }
+
+    .icterid-app .flex-and-grow {
+      display: flex !important;
+      flex-grow: 1;
+      align-items: center;
+    }
+
+    .icterid-app .box-border-style {
+      background-color: #2b2c2c !important;
+      -webkit-border-radius: 2px !important;
+      border-radius: 2px !important;
+      border: none;
+      padding: 10px 10px 10px 10px;
+      margin-bottom: 20px;
+    }
+
+    .icterid-app .div-right-icon {
+      float: right;
+      font-size: 16px;
+    }
+
+    /*target-section - Logon modal*/
+    #icterid-app-login-modal .modal-header {
+      color: var(--text-color);
+      border-bottom: 1px solid #3c3c3c;
+    }
+
+    #icterid-app-login-modal .modal-content {
+      background-color: #2b2c2c !important;
+      -webkit-border-radius: 2px !important;
+      border-radius: 2px !important;
+      border: none;
+      padding: 10px 10px 10px 10px;
+      margin-bottom: 20px;
+    }
+
+    #icterid-app-login-modal .modal-footer {
+      border-top: 1px solid #3c3c3c;
+    }
+
+    #icterid-app-login-modal .modal-body {
+      display: grid;
+      grid-row-gap: 10px;
+    }
+
+    #icterid-app-login-modal .div-right {
+      flex: 1;
+    }
+
+    #icterid-app-login-modal .div-left {
+      font-size: 14px;
+      line-height: 14px;
+    }
+
+    #icterid-app-login-modal .div-header {
+      display: flex;
+      height: 15px;
+      color: #d0d0d0 !important;
+      margin-bottom: 10px;
+    }
+
+    #icterid-app-login-modal .modal-dialog {
+      height: calc(100vh - 100px) !important;
+      display: flex;
+    }
+
+    #icterid-app-login-modal .modal-content {
+      margin: auto !important;
+      height: fit-content !important;
+    }
+
+    /*Info message Box*/
+    #info-message-box {
+      background-color: #aa6400 !important;
+      -webkit-border-radius: 2px !important;
+      border-radius: 2px !important;
+      border: none;
+      height: 26px;
+      color: var(--text-color);
+      font-size: 12px;
+      opacity: 0;
+      visibility: hidden;
+      animation: messagebox 6s forwards;
+      animation-delay: 0s;
+      bottom: 20;
+      position: absolute;
+      padding: 5px;
+    }
+
+    @keyframes messagebox {
+      0% {
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      50% {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      100% {
+        opacity: 0;
+        visibility: visible;
+      }
+    }
+
+    /*save-to-file-section*/
+    #save-to-file-section {
+      display: none;
+    }
+
+    /*specific sections*/
+    #external-results {
+      white-space: pre;
+    }
+
+    /*Error Dialog*/
+    .error-dialog {
+      position: absolute;
+      display: none;
+      border: none !important;
+      border-left: 3px solid rgb(223, 131, 2) !important;
+      background-color: #4d4d4d !important;
+      padding: 10px !important;
+      border-radius: 4px;
+      /*opacity: .9 !important;*/
+      box-shadow: 0 3px 3px rgb(0, 0, 0, 0.2);
+      width: fit-content;
+    }
+
+    .error-dialog>* {
+      font-family: monospace !important;
+      font-size: 12px !important;
+      line-height: normal;
+      cursor: default !important;
+      color: #d0d0d0 !important;
+    }
+
+    .error-dialog .ui-dialog-titlebar {
+      display: none;
+    }
+  </style>
+  <body>
+    <div id="error-dialog-box"></div>
+    <div class="waiting" id="hex-spinner-section">
+      <div class="waiting-box">
+        <svg class="hex-spinner" viewBox="0 -5 100 110">
+          <polygon stroke-width="7" stroke="#aa6400" fill-opacity="0" id="hex" points="50 1 95 25 95 75 50 99 5 75 5 25" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <div class="logs" id="logs"></div>
+        <div class="logs_cancel" id="cancel_task">Cancel task? <i class="fa fa-window-close"></i>
+        </div>
+      </div>
+    </div>
+    <header>
+      <nav class="navbar navbar-expand-lg navbar-dark">
+        <a class="navbar-brand" href="/">Vulnerable WebApp</a>
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <a href="redirect?url=https%3A%2F%2Fqeeqbox.com">
+              <i class="fa fa-star"></i>
+            </a>
+          </li>
+          {{status}}
+        </ul>
+      </nav>
+    </header>
+    <div class="icterid-app-wrapper">
+      <div class="icterid-app">
+        {{body}}
+      </div>
+    </div>
+    <script>
+      let global_lock = false
+
+      function spinner_on_off(on_off, text_only, text = '', cancel = false) {
+        if (on_off) {
+          if (text_only) {
+            $('#hex-spinner-section #logs').text(text);
+          } else {
+            $('#logs').text(text);
+            $('#hex-spinner-section').show();
+            if (cancel === true) {
+              $('#hex-spinner-section .logs_cancel').show();
+            }
+          }
+        } else {
+          $('#hex-spinner-section #logs').text('');
+          $('#hex-spinner-section').hide();
+          $('#hex-spinner-section .logs_cancel').hide();
+        }
+      }
+
+      function cancel_task() {
+        global_lock = true
+      }
+
+
+      $("#error-dialog-box").dialog({
+        resizable: false,
+        autoOpen: false,
+        resize: "auto",
+        width: "fit-content",
+        height: "auto",
+        minHeight: 0,
+        minWidth: 0,
+        modal: true,
+        dialogClass: 'error-dialog',
+        show: {
+          effect: "fade",
+          duration: 500
+        },
+        hide: {
+          effect: "fade",
+          duration: 300
+        },
+        position: {
+          my: "center bottom",
+          at: "center bottom-20",
+          of : window
+        },
+        open: function(event, ui) {
+          var $this = $(this);
+          setTimeout(function() {
+            $this.dialog('close')
+          }, 5000);
+        },
+        close: function(event, ui) {
+          var $this = $(this);
+          $this.text("")
+        }
+      });
+
+
+      function flash_message(msg) {
+        $("#error-dialog-box").html(msg)
+        $("#error-dialog-box").dialog("open");
+      }
+
+      $.ajaxSetup({
+        beforeSend: function(jqXHR, settings) {
+          spinner_on_off(true, false, "Getting Data", true)
+        },
+        complete: function() {
+          spinner_on_off(false, false, "Done", true)
+        }
+      });
+
+      $(window).resize(function() {
+        if ($("#error-dialog-box").text() !== "") {
+          $("#error-dialog-box").dialog("option", "position", {
+            my: "center bottom",
+            at: "center bottom-20",
+            of : window
+          });
+        }
+      });
+
+      jQuery(document).ready(function($) {
+        if (window.location.hash) {
+          let hash_value = window.location.hash.substring(1);
+            flash_message(`Moving to ${decodeURIComponent(hash_value)} section`)
+        }
+      });
+
+    </script>
+  </body>
+</html>

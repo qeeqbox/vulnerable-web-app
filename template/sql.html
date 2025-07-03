@@ -1,0 +1,55 @@
+<!-- 
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+-->
+
+<form class="box-border-style" id="target-section" onsubmit="return false">
+   <div class="div-header">
+      <div class="div-left">SQL Query</div>
+   </div>
+   <div class="div-100 collapse show">
+      <div id="sql-results"></div>
+      <div class="div-100">
+         <input type="text" class="flex-grow-area" id="sql-query-text" name="sql-query-text" placeholder="Enter SQL Query" required/>
+         <div class="cell-separator-line"></div>
+         <input type="submit" id="sql-run-button" value="Run SQL Query" />
+      </div>
+   </div>
+   <script type="text/javascript">
+      function run_sql_query(query) {
+        $.ajax({
+            url : "sql",
+            type : "POST",
+            data: {query:query},
+            success:function(data){
+              if (data !== 'Error') {
+                $('#sql-results').html(data)
+              }
+            }
+        }); 
+      }
+      
+      $('#sql-run-button').on('click', function() {
+        if ($('#sql-query-text').val() !== "") {
+            run_sql_query($('#sql-query-text').val())
+            }
+        })
+
+      $('#sql-query-text').on('keypress', function(e) {
+          if (e.key === "Enter" || e.keyCode === 13){
+            e.preventDefault()
+            if ($('#sql-query-text').val() !== "") {
+              run_sql_query($('#sql-query-text').val())
+            }
+        }
+      })
+    
+   </script>
+</form>

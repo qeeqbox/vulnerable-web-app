@@ -1,0 +1,27 @@
+<!-- 
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+-->
+
+<form class="box-border-style" id="target-section" method="post">
+  <div class="div-header">
+    <div class="div-left">Latest Pings</div>
+  </div>
+  <div class="div-100 collapse show">
+      <div class="div-100-grid-row-gap" id="ping-results">
+        {{ping-results}}
+      </div>
+      <div class="div-100">
+      <input type="text" class="flex-grow-area" name="ping" id="ping-text" placeholder="Enter host" required/>
+      <div class="cell-separator-line"></div>
+      <input type="submit" formaction="/ping" id="ping-button" value="Execute" />
+      </div>
+  </div>
+</form>

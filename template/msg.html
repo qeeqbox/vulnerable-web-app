@@ -1,0 +1,75 @@
+<!-- 
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+-->
+
+<html>
+  <head>
+    <title>Error</title>
+    <style type="text/css">
+      html {
+        min-height: 95%;
+        display: grid;
+        font-family: Arial !important;
+        background-color: #212222;
+      }
+
+      body {
+        margin: auto;
+      }
+
+      body>* {
+        font-family: monospace !important;
+        font-size: 12px !important;
+        line-height: normal;
+        cursor: default !important;
+        color: #d0d0d0 !important;
+      }
+
+      input[type="button"],
+      input[type="submit"] {
+        border: 0;
+        background-color: #383939 !important;
+        box-shadow: none;
+        -webkit-border-radius: 2px !important;
+        border-radius: 2px !important;
+        color: #d0d0d0 !important;
+        height: 26px;
+        border: none;
+        font-size: 12px;
+      }
+
+      #msg-box {
+        background-color: #2b2c2c !important;
+        -webkit-border-radius: 2px !important;
+        border-radius: 2px !important;
+        border: none !important;
+        border-left: 3px solid rgb(223, 131, 2) !important;
+        padding: 10px 10px 10px 10px;
+        display: flex;
+        align-items: center;
+        column-gap: 10px
+      }
+      
+    </style>
+  </head>
+  <body>
+    <div id="msg-box">
+      <p id="msg-result">
+        {{msg-result}}
+      </p>
+      <p>
+        <a href="{{msg-prev}}">
+          <input type="submit" value="{{msg-page}}" />
+        </a>
+      </p>
+    </div>
+  </body>
+</html>
