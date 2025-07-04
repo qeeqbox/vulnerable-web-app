@@ -36,12 +36,13 @@ SESSIONS = {}
 BASE_TEMPLATE = b""
 LOGIN_TEMPLATE = b""
 URL = "/"
-DATABASE = "database.db"
-EXTERNAL_FOLDER = "external"
-TEMPLATE_FOLDER = "template"
-LOGS_FOLDER = "logs"
-LOGS_FILE = path.join(LOGS_FOLDER,"httpd.log")
+PATH = path.dirname(path.realpath(__file__))
 
+DATABASE = path.join(PATH,"database.db")
+EXTERNAL_FOLDER = path.join(PATH,"external")
+TEMPLATE_FOLDER = path.join(PATH,"template")
+LOGS_FOLDER = path.join(PATH,"logs")
+LOGS_FILE = path.join(LOGS_FOLDER,"httpd.log")
 
 LOGGER = getLogger("httpd")
 rfh = RotatingFileHandler(LOGS_FILE, mode='wa', maxBytes=10*1024*1024, backupCount=5)
