@@ -492,7 +492,7 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_content(500, [('Content-type', 'text/html')], self.msg_page(f"Error: Internal Server Error {str(e)}".encode("utf-8")))
 
-with ThreadingHTTPServer(('', 8000), handler) as server:
+with ThreadingHTTPServer(('', 5142), handler) as server:
     LOGGER.info("HTTP server is running on port 8000... \nPress Ctrl+C to stop the server")
     server.allow_reuse_address = True
     try:
