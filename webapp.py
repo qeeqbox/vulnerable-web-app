@@ -182,9 +182,9 @@ class handler(BaseHTTPRequestHandler):
         cookies = [('Set-Cookie', cookie1.output(header='', sep='')),('Set-Cookie', cookie2.output(header='', sep='')),('Set-Cookie', cookie3.output(header='', sep='')),('Set-Cookie', cookie4.output(header='', sep=''))]
         return cookies
 
-    def redirect(self, URL):
+    def redirect(self, url):
         self.send_response(301)
-        self.send_header('Location', URL)
+        self.send_header('Location', url)
         self.end_headers()
 
     def add_user(self, username, password):
