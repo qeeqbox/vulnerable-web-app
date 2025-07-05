@@ -1,0 +1,2 @@
+- https://github.com/qeeqbox/default-credential
+- https://github.com/qeeqbox/open-redirect
