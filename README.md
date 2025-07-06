@@ -1,2 +1,4 @@
 - https://github.com/qeeqbox/default-credential
 - https://github.com/qeeqbox/open-redirect
+- https://github.com/qeeqbox/dom-based-cross-site-scripting
+- https://github.com/qeeqbox/reflected-cross-site-scripting
