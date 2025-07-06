@@ -78,8 +78,6 @@ with connect(DATABASE, isolation_level=None) as connection:
     cursor.execute("CREATE TABLE ticket (id integer PRIMARY KEY, username text, ticket text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
     cursor.execute("CREATE TABLE ping(id integer PRIMARY KEY, username text, ping text, output text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
     cursor.executemany("INSERT into users(username, hash, department, access, is_admin) values(?,?,?,?,?)", USERS)
-    cursor.execute("INSERT into ticket(username, ticket) values(?,?)", ("admin", "Test ticket #1"))
-    cursor.execute("INSERT into ping(username, ping, output) values(?,?,?)", ("admin", "x","ping not found: x"))
 
 with open(path.join(TEMPLATE_FOLDER,"home.html"),"rb") as f:
     BASE_TEMPLATE = f.read()
@@ -431,7 +429,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_content(204, None, None)
             return
         else:
-            self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {parsed_url.path} was not found".encode("utf-8")))
+            self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {urllib_parse.unquote(parsed_url.path)} was not found".encode("utf-8")))
             #self.send_content(204, None, None)
             return
 
