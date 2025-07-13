@@ -66,16 +66,16 @@ register_adapter(datetime, adapt_datetime_iso)
 register_converter("datetime", convert_datetime)
 
 SALT = environ["salt"].encode("utf-8") if "salt" in environ else b""
-USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"IT","sysinfo,ticket,ping,logs,external,sql",1),
-         ("john", sha512(b"jane"+SALT).hexdigest(),"HR","sysinfo,ticket",0),
-         ("jane", sha512(b"jane"+SALT).hexdigest(),"HR","sysinfo,ticket",0)]
+USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"IT","sysinfo,tickets,ping,logs,external,sql",1),
+         ("john", sha512(b"john"+SALT).hexdigest(),"HR","sysinfo,tickets",0),
+         ("jane", sha512(b"jane"+SALT).hexdigest(),"HR","sysinfo,tickets",0)]
 
 with connect(DATABASE, isolation_level=None) as connection:
     LOGGER.info("Creating new database.db")
     cursor = connection.cursor()
     
     cursor.execute("CREATE TABLE users (id integer PRIMARY KEY, username text, hash text, department text, access text, is_admin BOOLEAN DEFAULT 0 NOT NULL, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
-    cursor.execute("CREATE TABLE ticket (id integer PRIMARY KEY, username text, ticket text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
+    cursor.execute("CREATE TABLE tickets (id integer PRIMARY KEY, username text, ticket text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
     cursor.execute("CREATE TABLE ping(id integer PRIMARY KEY, username text, ping text, output text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
     cursor.executemany("INSERT into users(username, hash, department, access, is_admin) values(?,?,?,?,?)", USERS)
 
@@ -190,7 +190,7 @@ class handler(BaseHTTPRequestHandler):
             cursor = connection.cursor()
             results = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchall()
             if not results:
-                cursor.execute("INSERT into users(username, hash, department, access, is_admin) values(?,?,?,?,?)", (username, sha512(password.encode("utf-8")+SALT).hexdigest(),"none","sysinfo,ticket",0))
+                cursor.execute("INSERT into users(username, hash, department, access, is_admin) values(?,?,?,?,?)", (username, sha512(password.encode("utf-8")+SALT).hexdigest(),"none","sysinfo,tickets",0))
                 return True
         return False
 
@@ -244,9 +244,9 @@ class handler(BaseHTTPRequestHandler):
         return [((b"{{logs-results}}"),temp)]
 
     @logged_in
-    @check_access(access="ticket")
-    @render_page(file="ticket.html")
-    def ticket_section(self):
+    @check_access(access="tickets")
+    @render_page(file="tickets.html")
+    def tickets_section(self):
         temp = b""
         with connect(DATABASE, isolation_level=None) as connection:
             results = None
@@ -254,13 +254,15 @@ class handler(BaseHTTPRequestHandler):
             cookies = SimpleCookie(self.headers.get('Cookie'))
             if "is_admin" in cookies:
                 if cookies['is_admin'].value == "1":
-                    results = cursor.execute("SELECT * FROM ticket ORDER BY id DESC LIMIT 10").fetchall()
+                    results = cursor.execute("SELECT * FROM tickets ORDER BY id DESC LIMIT 10").fetchall()
+                else:
+                    results = cursor.execute("SELECT * FROM tickets WHERE username='%s' ORDER BY id DESC LIMIT 10" % self.session["username"]).fetchall()
             else:
-                    results = cursor.execute("SELECT * FROM ticket WHERE username='%s' ORDER BY id DESC LIMIT 10" % self.session["username"]).fetchall()
+                results = cursor.execute("SELECT * FROM tickets WHERE username='%s' ORDER BY id DESC LIMIT 10" % self.session["username"]).fetchall()
             if results:
                 for row in reversed(results):
                     temp += f"<div>[{row[3]}] {row[1]}: {row[2]}</div>".encode("utf-8")
-        return [((b"{{ticket-results}}"),temp)]
+        return [((b"{{tickets-results}}"),temp)]
 
     @logged_in
     @check_access(access="ping")
@@ -348,11 +350,11 @@ class handler(BaseHTTPRequestHandler):
         return temp_logs
 
     @logged_in
-    @check_access(access="ticket")
+    @check_access(access="tickets")
     def add_ticket(self, ticket):
         with connect(DATABASE, isolation_level=None) as connection:
             cursor = connection.cursor()
-            cursor.execute("INSERT into ticket(username, ticket) values(?,?)", (self.session["username"], ticket))
+            cursor.execute("INSERT into tickets(username, ticket) values(?,?)", (self.session["username"], ticket))
             return True
         return False
 
