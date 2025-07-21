@@ -68,7 +68,8 @@ register_converter("datetime", convert_datetime)
 SALT = environ["salt"].encode("utf-8") if "salt" in environ else b""
 USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"IT","sysinfo,tickets,ping,logs,external,sql",1),
          ("john", sha512(b"john"+SALT).hexdigest(),"HR","tickets",0),
-         ("jane", sha512(b"jane"+SALT).hexdigest(),"Sales","tickets",0)]
+         ("jane", sha512(b"jane"+SALT).hexdigest(),"Sales","tickets",0),
+         ("joe", sha512(b"joe"+SALT).hexdigest(),"R&D","sysinfo,tickets,ping,external",0)]
 TICKETS = [("john","IT, could you please help Joe Doe log into VPN"),
           ("jane","IT, we are unable to access the \\\\SALES")]
 
