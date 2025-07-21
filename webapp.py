@@ -67,8 +67,10 @@ register_converter("datetime", convert_datetime)
 
 SALT = environ["salt"].encode("utf-8") if "salt" in environ else b""
 USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"IT","sysinfo,tickets,ping,logs,external,sql",1),
-         ("john", sha512(b"john"+SALT).hexdigest(),"HR","sysinfo,tickets",0),
-         ("jane", sha512(b"jane"+SALT).hexdigest(),"HR","sysinfo,tickets",0)]
+         ("john", sha512(b"john"+SALT).hexdigest(),"HR","tickets",0),
+         ("jane", sha512(b"jane"+SALT).hexdigest(),"Sales","tickets",0)]
+TICKETS = [("john","IT, could you please help Joe Doe log into VPN"),
+          ("jane","IT, we are unable to access the \\\\SALES")]
 
 with connect(DATABASE, isolation_level=None) as connection:
     LOGGER.info("Creating new database.db")
@@ -76,8 +78,9 @@ with connect(DATABASE, isolation_level=None) as connection:
     
     cursor.execute("CREATE TABLE users (id integer PRIMARY KEY, username text, hash text, department text, access text, is_admin BOOLEAN DEFAULT 0 NOT NULL, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
     cursor.execute("CREATE TABLE tickets (id integer PRIMARY KEY, username text, ticket text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
-    cursor.execute("CREATE TABLE ping(id integer PRIMARY KEY, username text, ping text, output text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
+    cursor.execute("CREATE TABLE ping (id integer PRIMARY KEY, username text, ping text, output text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
     cursor.executemany("INSERT into users(username, hash, department, access, is_admin) values(?,?,?,?,?)", USERS)
+    cursor.executemany("INSERT into tickets(username, ticket) values(?,?)", TICKETS)
 
 with open(path.join(TEMPLATE_FOLDER,"home.html"),"rb") as f:
     BASE_TEMPLATE = f.read()
@@ -493,7 +496,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_content(500, [('Content-type', 'text/html')], self.msg_page(f"Error: Internal Server Error {str(e)}".encode("utf-8")))
 
 with ThreadingHTTPServer(('', 5142), handler) as server:
-    LOGGER.info("HTTP server is running on port 8000... \nPress Ctrl+C to stop the server")
+    LOGGER.info("HTTP server is running on port 5142... \nPress Ctrl+C to stop the server")
     server.allow_reuse_address = True
     try:
         server.serve_forever()
