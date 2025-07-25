@@ -73,7 +73,7 @@ USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"IT","sysinfo,tickets,ping,
 TICKETS = [("john","IT, could you please help Joe Doe log into VPN"),
           ("jane","IT, we are unable to access the \\\\SALES")]
 
-with connect(DATABASE, isolation_level=None) as connection:
+with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
     LOGGER.info("Creating new database.db")
     cursor = connection.cursor()
     
@@ -190,7 +190,7 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def add_user(self, username, password):
-        with connect(DATABASE, isolation_level=None) as connection:
+        with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
             cursor = connection.cursor()
             results = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchall()
             if not results:
@@ -199,18 +199,20 @@ class handler(BaseHTTPRequestHandler):
         return False
 
     def check_creds(self, username, password):
-        with connect(DATABASE, isolation_level=None) as connection:
-            cursor = connection.cursor()
-            ret = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchall()
-            if ret:
-                ret = cursor.execute("SELECT * FROM users WHERE username='%s' AND hash='%s'" % (username,sha512(password.encode("utf-8")+SALT).hexdigest())).fetchone()
+        try:
+            with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
+                cursor = connection.cursor()
+                ret = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchall()
                 if ret:
-                    return ["valid",ret]
+                    ret = cursor.execute("SELECT * FROM users WHERE username='%s' AND hash='%s'" % (username,sha512(password.encode("utf-8")+SALT).hexdigest())).fetchone()
+                    if ret:
+                        return ["valid",ret]
+                    else:
+                        return ["password",ret]
                 else:
-                    return ["password",ret]
-            else:
-                return ["username",ret]
-        return None
+                    return ["username", username]
+        except Exception as e:
+            return ["error",str(e).encode("utf-8")] 
 
     def check_logged_in(self):
         cookies = SimpleCookie(self.headers.get('Cookie'))
@@ -252,7 +254,7 @@ class handler(BaseHTTPRequestHandler):
     @render_page(file="tickets.html")
     def tickets_section(self):
         temp = b""
-        with connect(DATABASE, isolation_level=None) as connection:
+        with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
             results = None
             cursor = connection.cursor()
             cookies = SimpleCookie(self.headers.get('Cookie'))
@@ -273,7 +275,7 @@ class handler(BaseHTTPRequestHandler):
     @render_page(file="ping.html")
     def ping_section(self):
         temp = b""
-        with connect(DATABASE, isolation_level=None) as connection:
+        with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
             cursor = connection.cursor()
             results = cursor.execute("SELECT * FROM ping WHERE username='%s' ORDER BY id DESC LIMIT 10" % self.session["username"]).fetchall()
             if results:
@@ -322,7 +324,7 @@ class handler(BaseHTTPRequestHandler):
         ret = b""
         try:
             if query != None:
-                with connect(DATABASE, isolation_level=None) as connection:
+                with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
                     cursor = connection.cursor()
                     results = cursor.execute(query)
                     if results:
@@ -330,6 +332,18 @@ class handler(BaseHTTPRequestHandler):
                             ret += f"Row Count ({results.rowcount}) ".encode("utf-8")
                         for row in results:
                             ret += str(row).encode("utf-8")
+        except Exception as e:
+            ret = str(e).encode("utf-8")
+        return ret
+
+    def get_user(self,id_=None):
+        ret = b""
+        try:
+            if id_ != None:
+                with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
+                    cursor = connection.cursor()
+                    results = cursor.execute("SELECT * FROM users WHERE id='%s'" % (id_)).fetchone()
+                    return dumps(results).encode('utf-8')
         except Exception as e:
             ret = str(e).encode("utf-8")
         return ret
@@ -356,7 +370,7 @@ class handler(BaseHTTPRequestHandler):
     @logged_in
     @check_access(access="tickets")
     def add_ticket(self, ticket):
-        with connect(DATABASE, isolation_level=None) as connection:
+        with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
             cursor = connection.cursor()
             cursor.execute("INSERT into tickets(username, ticket) values(?,?)", (self.session["username"], ticket))
             return True
@@ -365,7 +379,7 @@ class handler(BaseHTTPRequestHandler):
     @logged_in
     @check_access(access="ping")
     def add_ping(self, ping):
-        with Popen("ping -c 1 " + ping, stdout=PIPE, stderr=STDOUT, shell=True) as process, connect(DATABASE, isolation_level=None) as connection:
+        with Popen("ping -c 1 " + ping, stdout=PIPE, stderr=STDOUT, shell=True) as process, connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
             cursor = connection.cursor()
             cursor.execute("INSERT into ping(username, ping, output) values(?,?,?)", (self.session["username"], ping, process.communicate()[0].decode("utf-8")))
             return True
@@ -406,6 +420,16 @@ class handler(BaseHTTPRequestHandler):
                 content = content.replace(b"{{status}}", b"") 
             self.wfile.write(content)
 
+    def send_content_raw(self, status, headers, content=None):
+        if status:
+            self.send_response(status)
+        if headers:
+            for header in headers:
+                self.send_header(header[0], header[1])
+        self.end_headers()
+        if content != None:
+            self.wfile.write(content)
+
     def do_GET(self):
         parsed_url = urllib_parse.urlparse(self.path)
         get_request_data = urllib_parse.parse_qs(parsed_url.query)
@@ -414,25 +438,28 @@ class handler(BaseHTTPRequestHandler):
             if self.session:
                 self.send_content(200, [('Content-type', 'text/html')], self.render_home_page()) 
                 return
-            else:        
+            else:
                 self.send_content(200, [('Content-type', 'text/html')], self.render_login_page())
                 return
         elif parsed_url.path == "/logs":
-            if parsed_url.query.startswith("file="):
+            if parsed_url.query.startswith("file=") and "file" in get_request_data:
                 self.send_content(200, [('Content-type', 'text/html')], self.read_logs(get_request_data["file"][0]))
                 return
-            elif parsed_url.query.startswith("search="):
+            elif parsed_url.query.startswith("search=") and "search" in get_request_data:
                 self.send_content(200, [('Content-type', 'text/html')], self.read_logs(LOGS_FILE,get_request_data["search"][0]))
                 return
         elif parsed_url.path == "/logout":
             self.clear_session()
             self.redirect(URL)
             return
-        elif parsed_url.path == "/redirect":
+        elif parsed_url.path == "/redirect" and "url" in get_request_data:
             self.redirect(get_request_data["url"][0])
             return
         elif parsed_url.path == '/favicon.ico':
             self.send_content(204, None, None)
+            return
+        elif parsed_url.path == '/users' and "id" in get_request_data:
+            self.send_content_raw(200, [('Content-type', 'application/json')], self.get_user(get_request_data["id"][0]))
             return
         else:
             self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {urllib_parse.unquote(parsed_url.path)} was not found".encode("utf-8")))
@@ -444,37 +471,37 @@ class handler(BaseHTTPRequestHandler):
         post_request_data_length = int(self.headers.get('content-length'))
         post_request_data = urllib_parse.parse_qs(str(self.rfile.read(post_request_data_length),"UTF-8"))
         self.session = self.check_logged_in()
-        if parsed_url.path == "/login":
-            creds = self.check_creds(post_request_data['username'][0],post_request_data['password'][0])
-            if creds[0] == "valid":
-                self.send_content(302, self.gen_cookie(creds[1],60*15)+[('Location', URL)], None)
+        if parsed_url.path == "/login" and "username" in post_request_data and "password" in post_request_data:
+            ret = self.check_creds(post_request_data['username'][0],post_request_data['password'][0])
+            if isinstance(ret, list) and ret[0] == "valid":
+                self.send_content(302, self.gen_cookie(ret[1],60*15)+[('Location', URL)], None)
                 self.log_message("%s logged in" % post_request_data['username'][0])
                 return
-            elif creds[0] == "username":
-                self.send_content(401, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data["username"][0]} doesn't exist".encode("utf-8"), b"login"))
-                return
-            elif creds[0] == "password":
+            elif isinstance(ret, list) and ret[0] == "password":
                 self.send_content(401, [('Content-type', 'text/html')], self.msg_page(f"Password is wrong".encode("utf-8"), b"login"))
-                return 
-        elif parsed_url.path == "/register":
+                return
+            elif isinstance(ret, list) and ret[0] == "username" or isinstance(ret, list) and ret[0] == "error":
+                self.send_content(401, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data['username'][0]} doesn't exist".encode("utf-8"), b"login"))
+                return
+        elif parsed_url.path == "/register" and "username" in post_request_data and "password" in post_request_data:
             ret = self.add_user(post_request_data["username"][0],post_request_data["password"][0])
             if ret:
                 self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data["username"][0]} created".encode("utf-8"), b"login"))
             else:
                 self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data["username"][0]} was not created".encode("utf-8"), b"login"))
             return
-        elif parsed_url.path == "/add":
+        elif parsed_url.path == "/add" and "ticket" in post_request_data:
             self.add_ticket(post_request_data["ticket"][0])
             self.redirect(URL)
             return
-        elif parsed_url.path == "/ping":
+        elif parsed_url.path == "/ping" and "ping" in post_request_data:
             self.add_ping(post_request_data["ping"][0])
             self.redirect(URL)
             return
-        elif parsed_url.path == "/external":
+        elif parsed_url.path == "/external" and "link" in post_request_data:
             self.send_content(200, [('Content-type', 'text/html')], self.run_external_module(post_request_data["link"][0]))
             return
-        elif parsed_url.path == "/sql":
+        elif parsed_url.path == "/sql" and "query" in post_request_data:
             self.send_content(200, [('Content-type', 'text/html')], self.run_sql_query(post_request_data["query"][0]))
             return
 
