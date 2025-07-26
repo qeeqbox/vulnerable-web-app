@@ -458,7 +458,7 @@ class handler(BaseHTTPRequestHandler):
         elif parsed_url.path == '/favicon.ico':
             self.send_content(204, None, None)
             return
-        elif parsed_url.path == '/users' and "id" in get_request_data:
+        elif parsed_url.path == '/user' and "id" in get_request_data:
             self.send_content_raw(200, [('Content-type', 'application/json')], self.get_user(get_request_data["id"][0]))
             return
         else:
