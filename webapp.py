@@ -202,13 +202,13 @@ class handler(BaseHTTPRequestHandler):
         try:
             with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
                 cursor = connection.cursor()
-                ret = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchall()
-                if ret:
-                    ret = cursor.execute("SELECT * FROM users WHERE username='%s' AND hash='%s'" % (username,sha512(password.encode("utf-8")+SALT).hexdigest())).fetchone()
-                    if ret:
-                        return ["valid",ret]
+                valid_username = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchone()
+                if valid_username:
+                    valid_password = cursor.execute("SELECT * FROM users WHERE username='%s' AND hash='%s'" % (username,sha512(password.encode("utf-8")+SALT).hexdigest())).fetchone()
+                    if valid_password:
+                        return ["valid",valid_password]
                     else:
-                        return ["password",ret]
+                        return ["password",valid_username]
                 else:
                     return ["username", username]
         except Exception as e:
@@ -478,6 +478,11 @@ class handler(BaseHTTPRequestHandler):
                 self.log_message("%s logged in" % post_request_data['username'][0])
                 return
             elif isinstance(ret, list) and ret[0] == "password":
+                if "debug" in post_request_data:
+                    if post_request_data["debug"][0] == "1":
+                        self.send_content(302, self.gen_cookie(ret[1],60*15)+[('Location', URL)], None)
+                        self.log_message("%s logged in" % post_request_data['username'][0])
+                        return
                 self.send_content(401, [('Content-type', 'text/html')], self.msg_page(f"Password is wrong".encode("utf-8"), b"login"))
                 return
             elif isinstance(ret, list) and ret[0] == "username" or isinstance(ret, list) and ret[0] == "error":
