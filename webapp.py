@@ -162,7 +162,11 @@ class handler(BaseHTTPRequestHandler):
             return _render_page
 
     def gen_cookie(self, row, max_age):
-        session_id = "".join(str(randint(1, 9)) for _ in range(5))
+        cookies = SimpleCookie(self.headers.get('Cookie'))
+        if 'session_id' in cookies:
+            session_id = cookies['session_id'].value
+        else:
+            session_id = "".join(str(randint(1, 9)) for _ in range(5))
         #end_time = datetime.now() + timedelta(days=1)
         SESSIONS[session_id] = {"username":row[1], "department": row[3],"access":row[4], "is_admin":row[5]}
         cookie1 = SimpleCookie()
