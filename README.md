@@ -7,6 +7,8 @@
 - https://github.com/qeeqbox/os-command-injection
 - https://github.com/qeeqbox/reflected-cross-site-scripting
 - https://github.com/qeeqbox/session-hijacking
+- https://github.com/qeeqbox/session-fixation
+- https://github.com/qeeqbox/session-replay
 - https://github.com/qeeqbox/sql-injection
 - https://github.com/qeeqbox/stored-cross-site-scripting
 - https://github.com/qeeqbox/vertical-privilege-escalation
