@@ -161,9 +161,12 @@ class handler(BaseHTTPRequestHandler):
         else:
             return _render_page
 
-    def gen_cookie(self, row, max_age):
+    def gen_cookie(self, row, max_age, query):
+        session_id = None
         cookies = SimpleCookie(self.headers.get('Cookie'))
-        if 'session_id' in cookies:
+        if 'session_id' in query:
+            session_id = query['session_id'][0]
+        elif 'session_id' in cookies:
             session_id = cookies['session_id'].value
         else:
             session_id = "".join(str(randint(1, 9)) for _ in range(5))
@@ -474,17 +477,18 @@ class handler(BaseHTTPRequestHandler):
         parsed_url = urllib_parse.urlparse(self.path)
         post_request_data_length = int(self.headers.get('content-length'))
         post_request_data = urllib_parse.parse_qs(str(self.rfile.read(post_request_data_length),"UTF-8"))
+        query_request_data = urllib_parse.parse_qs(parsed_url.query)
         self.session = self.check_logged_in()
         if parsed_url.path == "/login" and "username" in post_request_data and "password" in post_request_data:
             ret = self.check_creds(post_request_data['username'][0],post_request_data['password'][0])
             if isinstance(ret, list) and ret[0] == "valid":
-                self.send_content(302, self.gen_cookie(ret[1],60*15)+[('Location', URL)], None)
+                self.send_content(302, self.gen_cookie(ret[1],60*15,query_request_data)+[('Location', URL)], None)
                 self.log_message("%s logged in" % post_request_data['username'][0])
                 return
             elif isinstance(ret, list) and ret[0] == "password":
                 if "debug" in post_request_data:
                     if post_request_data["debug"][0] == "1":
-                        self.send_content(302, self.gen_cookie(ret[1],60*15)+[('Location', URL)], None)
+                        self.send_content(302, self.gen_cookie(ret[1],60*15,query_request_data)+[('Location', URL)], None)
                         self.log_message("%s logged in" % post_request_data['username'][0])
                         return
                 self.send_content(401, [('Content-type', 'text/html')], self.msg_page(f"Password is wrong".encode("utf-8"), b"login"))

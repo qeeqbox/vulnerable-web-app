@@ -27,4 +27,10 @@
       </div>
     </div>
   </div>
+  <script>
+    const login = document.getElementById("login");
+    const register = document.getElementById("register");
+    login.formAction += window.location.search;
+    register.formAction += window.location.search;
+  </script>
 </form>
