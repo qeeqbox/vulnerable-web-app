@@ -360,7 +360,7 @@ class handler(BaseHTTPRequestHandler):
     def read_logs(self, file, search=None, recent_rows=10):
         temp_logs = b""
         if search:
-            with open(file,"r") as f:
+            with open(path.join(LOGS_FOLDER,file),"r") as f:
                 lines = f.readlines()
                 found = [line for line in lines if search in line]
                 if found:
@@ -370,7 +370,7 @@ class handler(BaseHTTPRequestHandler):
                 if temp_logs == b"":
                     temp_logs = f"<div>No match found: {search}</div>".encode("utf-8")
         else:
-            with open(file,"rb") as f:
+            with open(path.join(LOGS_FOLDER,file),"rb") as f:
                 temp_logs += f.read()
         return temp_logs
 
