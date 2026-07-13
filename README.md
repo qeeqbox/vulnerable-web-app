@@ -13,3 +13,4 @@
 - https://github.com/qeeqbox/stored-cross-site-scripting
 - https://github.com/qeeqbox/vertical-privilege-escalation
 - https://github.com/qeeqbox/remote-file-inclusion
+- https://github.com/qeeqbox/local-file-inclusion
