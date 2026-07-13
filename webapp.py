@@ -237,6 +237,12 @@ class handler(BaseHTTPRequestHandler):
         return False
 
     @logged_in
+    def change_password(self, password):
+        with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
+            cursor = connection.cursor()
+            cursor.execute("UPDATE users SET hash='%s' WHERE username='%s'" % (sha512(password.encode()+SALT).hexdigest(),self.session["username"]))
+
+    @logged_in
     @render_page(file="sysinfo.html")
     def sysinfo_section(self):
         temp = b""
@@ -517,7 +523,10 @@ class handler(BaseHTTPRequestHandler):
         elif parsed_url.path == "/sql" and "query" in post_request_data:
             self.send_content(200, [('Content-type', 'text/html')], self.run_sql_query(post_request_data["query"][0]))
             return
-
+        elif parsed_url.path == "/change-password" and "password" in post_request_data:
+            self.send_content(200, [('Content-type', 'text/html')], self.change_password(post_request_data["password"][0]))
+            return
+    
         self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {parsed_url.path} was not found".encode("utf-8")))
         return
 
