@@ -14,3 +14,4 @@
 - https://github.com/qeeqbox/vertical-privilege-escalation
 - https://github.com/qeeqbox/remote-file-inclusion
 - https://github.com/qeeqbox/local-file-inclusion
+- https://github.com/qeeqbox/cross-site-request-forgery
