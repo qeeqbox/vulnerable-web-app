@@ -243,6 +243,7 @@ class handler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE users SET hash='%s' WHERE username='%s'" % (sha512(password.encode()+SALT).hexdigest(),self.session["username"]))
 
     @logged_in
+    @check_access(access="sysinfo")
     @render_page(file="sysinfo.html")
     def sysinfo_section(self):
         temp = b""
