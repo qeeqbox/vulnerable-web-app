@@ -220,15 +220,18 @@ class handler(BaseHTTPRequestHandler):
             with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
                 cursor = connection.cursor()
                 results_user = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchone()
-                results_captcha = cursor.execute("SELECT * FROM captcha WHERE uuid='%s'" % (uuid)).fetchone()
-                if not results_user and results_captcha:
+                if results_user:
+                    return "username"
+                if uuid != "0":
+                    results_captcha = cursor.execute("SELECT * FROM captcha WHERE uuid='%s'" % (uuid)).fetchone()
                     if results_captcha[3] == captcha:
                         cursor.execute("INSERT into users(username, hash, email, department, access, is_admin) values(?,?,?,?,?,?)", (username, sha512(password.encode("utf-8")+SALT).hexdigest(),email,"none","profile,tickets",0))
                         return "valid"
                     else:
                         return "captcha"
                 else:
-                    return "username"
+                    cursor.execute("INSERT into users(username, hash, email, department, access, is_admin) values(?,?,?,?,?,?)", (username, sha512(password.encode("utf-8")+SALT).hexdigest(),email,"none","profile,tickets",0))
+                    return "valid"
         except Exception as e:
             return str(e).encode("utf-8")
 
@@ -569,7 +572,7 @@ class handler(BaseHTTPRequestHandler):
             elif ret == "captcha":
                 self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"Wrong captcha".encode("utf-8"), b"login"))
             elif ret == "username":
-                self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data['username'][0]} already exists", b"login"))
+                self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data['username'][0]} already exists".encode("utf-8"), b"login"))
             else:
                 self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data["username"][0]} was not created".encode("utf-8"), b"login"))
             return
