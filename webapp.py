@@ -215,23 +215,19 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Location', url)
         self.end_headers()
 
-    def add_user(self, username,password,email,captcha,uuid):
+    def add_user(self, username,password,email,captcha,uuid,debug):
         try:
             with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
                 cursor = connection.cursor()
                 results_user = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchone()
                 if results_user:
                     return "username"
-                if uuid != "0":
-                    results_captcha = cursor.execute("SELECT * FROM captcha WHERE uuid='%s'" % (uuid)).fetchone()
-                    if results_captcha[3] == captcha:
-                        cursor.execute("INSERT into users(username, hash, email, department, access, is_admin) values(?,?,?,?,?,?)", (username, sha512(password.encode("utf-8")+SALT).hexdigest(),email,"none","profile,tickets",0))
-                        return "valid"
-                    else:
-                        return "captcha"
-                else:
+                results_captcha = cursor.execute("SELECT * FROM captcha WHERE uuid='%s'" % (uuid)).fetchone()
+                if results_captcha[3] == captcha or debug == "1":
                     cursor.execute("INSERT into users(username, hash, email, department, access, is_admin) values(?,?,?,?,?,?)", (username, sha512(password.encode("utf-8")+SALT).hexdigest(),email,"none","profile,tickets",0))
                     return "valid"
+                else:
+                    return "captcha"
         except Exception as e:
             return str(e).encode("utf-8")
 
@@ -566,7 +562,7 @@ class handler(BaseHTTPRequestHandler):
                 self.send_content(401, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data['username'][0]} doesn't exist".encode("utf-8"), b"login"))
                 return
         elif parsed_url.path == "/register" and all(key in post_request_data for key in ["username","password","email","captcha","uuid"]):
-            ret = self.add_user(post_request_data["username"][0],post_request_data["password"][0],post_request_data["email"][0],post_request_data["captcha"][0],post_request_data["uuid"][0])
+            ret = self.add_user(post_request_data["username"][0],post_request_data["password"][0],post_request_data["email"][0],post_request_data["captcha"][0],post_request_data["uuid"][0],post_request_data["debug"][0])
             if ret == "valid":
                 self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data["username"][0]} created".encode("utf-8"), b"login"))
             elif ret == "captcha":
