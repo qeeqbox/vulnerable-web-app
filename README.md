@@ -16,3 +16,5 @@
 - https://github.com/qeeqbox/local-file-inclusion
 - https://github.com/qeeqbox/cross-site-request-forgery
 - https://github.com/qeeqbox/authorization-bypass
+- https://github.com/qeeqbox/captcha-bypass
+- 
