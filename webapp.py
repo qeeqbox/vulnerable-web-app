@@ -31,6 +31,8 @@ from ast import parse as ast_parse
 from sys import executable
 from functools import wraps
 from io import StringIO
+from re import sub as resub
+from uuid import uuid4
 
 SESSIONS = {}
 BASE_TEMPLATE = b""
@@ -66,21 +68,21 @@ register_adapter(datetime, adapt_datetime_iso)
 register_converter("datetime", convert_datetime)
 
 SALT = environ["salt"].encode("utf-8") if "salt" in environ else b""
-USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"IT","sysinfo,tickets,ping,logs,external,sql",1),
-         ("john", sha512(b"john"+SALT).hexdigest(),"HR","tickets",0),
-         ("jane", sha512(b"jane"+SALT).hexdigest(),"Sales","tickets",0),
-         ("joe", sha512(b"joe"+SALT).hexdigest(),"R&D","sysinfo,tickets,ping,external",0)]
+USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"admin@qeeqbox.local","IT","sysinfo,tickets,ping,logs,external,sql",1),
+         ("john", sha512(b"john"+SALT).hexdigest(),"john.d@qeeqbox.local","HR","tickets",0,),
+         ("jane", sha512(b"jane"+SALT).hexdigest(),"jane.d@qeeqbox.local","Sales","tickets",0),
+         ("joe", sha512(b"joe"+SALT).hexdigest(),"joe.d@qeeqbox.local","R&D","sysinfo,tickets,ping,external",0)]
 TICKETS = [("john","IT, could you please help Joe Doe log into VPN"),
           ("jane","IT, we are unable to access the \\\\SALES")]
 
 with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
     LOGGER.info("Creating new database.db")
     cursor = connection.cursor()
-    
-    cursor.execute("CREATE TABLE users (id integer PRIMARY KEY, username text, hash text, department text, access text, is_admin BOOLEAN DEFAULT 0 NOT NULL, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
+    cursor.execute("CREATE TABLE users (id integer PRIMARY KEY, username text, hash text, email text, department text, access text, is_admin BOOLEAN DEFAULT 0 NOT NULL, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
     cursor.execute("CREATE TABLE tickets (id integer PRIMARY KEY, username text, ticket text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
     cursor.execute("CREATE TABLE ping (id integer PRIMARY KEY, username text, ping text, output text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
-    cursor.executemany("INSERT into users(username, hash, department, access, is_admin) values(?,?,?,?,?)", USERS)
+    cursor.execute("CREATE TABLE captcha (id integer PRIMARY KEY, uuid text, question text, answer text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
+    cursor.executemany("INSERT into users(username, hash, email, department, access, is_admin) values(?,?,?,?,?,?)", USERS)
     cursor.executemany("INSERT into tickets(username, ticket) values(?,?)", TICKETS)
 
 with open(path.join(TEMPLATE_FOLDER,"home.html"),"rb") as f:
@@ -151,7 +153,24 @@ class handler(BaseHTTPRequestHandler):
                     content = fi.read()
                     items = f(self, *args, **kws)
                     for item in items:
-                        content = content.replace(item[0], item[1])
+                        temp_text = item[1]
+                        evaluated_text = b""
+                        start = 0
+                        while start < len(temp_text):
+                            if temp_text[start:start+2] == b"{{":
+                                end = temp_text.find(b"}}", start)
+                                if end != -1:
+                                    try:
+                                        value = str(eval(temp_text[start+2:end])).encode("utf-8")
+                                    except Exception:
+                                        value = temp_text[start:end+2]
+
+                                    evaluated_text += value
+                                    start = end + 2
+                                    continue
+                            evaluated_text += temp_text[start:start+1]
+                            start += 1
+                        content = content.replace(item[0], evaluated_text)
                     return content
                 return b"Access Needed"
             return wrapper
@@ -171,21 +190,21 @@ class handler(BaseHTTPRequestHandler):
         else:
             session_id = "".join(str(randint(1, 9)) for _ in range(5))
         #end_time = datetime.now() + timedelta(days=1)
-        SESSIONS[session_id] = {"username":row[1], "department": row[3],"access":row[4], "is_admin":row[5]}
+        SESSIONS[session_id] = {"username":row[1], "department": row[4],"access":row[5], "is_admin":row[6]}
         cookie1 = SimpleCookie()
         cookie1['session_id'] = session_id
         cookie1['session_id']['path'] = '/'
         cookie1['session_id']['max-age'] = max_age
         cookie2 = SimpleCookie()
-        cookie2['is_admin'] = row[5]
+        cookie2['is_admin'] = row[6]
         cookie2['is_admin']['path'] = '/'
         cookie2['is_admin']['max-age'] = max_age
         cookie3 = SimpleCookie()
-        cookie3['access'] = row[4]
+        cookie3['access'] = row[5]
         cookie3['access']['path'] = '/'
         cookie3['access']['max-age'] = max_age
         cookie4 = SimpleCookie()
-        cookie4['department'] = row[3]
+        cookie4['department'] = row[4]
         cookie4['department']['path'] = '/'
         cookie4['department']['max-age'] = max_age
         cookies = [('Set-Cookie', cookie1.output(header='', sep='')),('Set-Cookie', cookie2.output(header='', sep='')),('Set-Cookie', cookie3.output(header='', sep='')),('Set-Cookie', cookie4.output(header='', sep=''))]
@@ -196,14 +215,22 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Location', url)
         self.end_headers()
 
-    def add_user(self, username, password):
-        with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
-            cursor = connection.cursor()
-            results = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchall()
-            if not results:
-                cursor.execute("INSERT into users(username, hash, department, access, is_admin) values(?,?,?,?,?)", (username, sha512(password.encode("utf-8")+SALT).hexdigest(),"none","sysinfo,tickets",0))
-                return True
-        return False
+    def add_user(self, username,password,email,captcha,uuid):
+        try:
+            with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
+                cursor = connection.cursor()
+                results_user = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchone()
+                results_captcha = cursor.execute("SELECT * FROM captcha WHERE uuid='%s'" % (uuid)).fetchone()
+                if not results_user and results_captcha:
+                    if results_captcha[3] == captcha:
+                        cursor.execute("INSERT into users(username, hash, email, department, access, is_admin) values(?,?,?,?,?,?)", (username, sha512(password.encode("utf-8")+SALT).hexdigest(),email,"none","profile,tickets",0))
+                        return "valid"
+                    else:
+                        return "captcha"
+                else:
+                    return "username"
+        except Exception as e:
+            return str(e).encode("utf-8")
 
     def check_creds(self, username, password):
         try:
@@ -241,6 +268,22 @@ class handler(BaseHTTPRequestHandler):
         with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
             cursor = connection.cursor()
             cursor.execute("UPDATE users SET hash='%s' WHERE username='%s'" % (sha512(password.encode()+SALT).hexdigest(),self.session["username"]))
+
+    @logged_in
+    @check_access(access="profile")
+    @render_page(file="profile.html")
+    def profile_section(self):
+        temp = b""
+        with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
+            cursor = connection.cursor()
+            profile = cursor.execute("SELECT * FROM users WHERE username='%s'" % self.session["username"]).fetchone()
+            if profile:
+                temp += f"<div>username: {profile[1]}</div>".encode("utf-8")
+                temp += f"<div>email: {profile[3]}</div>".encode("utf-8")
+                temp += f"<div>department: {profile[4]}</div>".encode("utf-8")
+                temp += f"<div>access: {profile[5]}</div>".encode("utf-8")
+                temp += f"<div>admin: {profile[6]}</div>".encode("utf-8")
+        return [((b"{{profile-results}}"),temp)]
 
     @logged_in
     @check_access(access="sysinfo")
@@ -362,6 +405,19 @@ class handler(BaseHTTPRequestHandler):
             ret = str(e).encode("utf-8")
         return ret
 
+    def gen_captcha(self,id_=None):
+        ret = b""
+        try:
+            number1, number2 = randint(1, 10), randint(1, 10)
+            uuid = str(uuid4())
+            with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
+                cursor = connection.cursor()
+                cursor.execute("INSERT into captcha(uuid, question, answer) values(?,?,?)", (uuid, f"{number1}+{number2}",f"{number1+number2}"))
+                return dumps({"uuid":uuid,"question":f"{number1}+{number2}"}).encode('utf-8')
+        except Exception as e:
+            ret = str(e).encode("utf-8")
+        return ret
+
     @logged_in
     @check_access(access="logs")
     def read_logs(self, file, search=None, recent_rows=10):
@@ -475,6 +531,9 @@ class handler(BaseHTTPRequestHandler):
         elif parsed_url.path == '/user' and "id" in get_request_data:
             self.send_content_raw(200, [('Content-type', 'application/json')], self.get_user(get_request_data["id"][0]))
             return
+        elif parsed_url.path == '/captcha':
+            self.send_content_raw(200, [('Content-type', 'application/json')], self.gen_captcha())
+            return
         else:
             self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {urllib_parse.unquote(parsed_url.path)} was not found".encode("utf-8")))
             #self.send_content(204, None, None)
@@ -503,10 +562,14 @@ class handler(BaseHTTPRequestHandler):
             elif isinstance(ret, list) and ret[0] == "username" or isinstance(ret, list) and ret[0] == "error":
                 self.send_content(401, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data['username'][0]} doesn't exist".encode("utf-8"), b"login"))
                 return
-        elif parsed_url.path == "/register" and "username" in post_request_data and "password" in post_request_data:
-            ret = self.add_user(post_request_data["username"][0],post_request_data["password"][0])
-            if ret:
+        elif parsed_url.path == "/register" and all(key in post_request_data for key in ["username","password","email","captcha","uuid"]):
+            ret = self.add_user(post_request_data["username"][0],post_request_data["password"][0],post_request_data["email"][0],post_request_data["captcha"][0],post_request_data["uuid"][0])
+            if ret == "valid":
                 self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data["username"][0]} created".encode("utf-8"), b"login"))
+            elif ret == "captcha":
+                self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"Wrong captcha".encode("utf-8"), b"login"))
+            elif ret == "username":
+                self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data['username'][0]} already exists", b"login"))
             else:
                 self.send_content(200, [('Content-type', 'text/html')], self.msg_page(f"User {post_request_data["username"][0]} was not created".encode("utf-8"), b"login"))
             return

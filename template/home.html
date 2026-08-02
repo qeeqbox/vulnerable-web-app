@@ -17,6 +17,7 @@
   <script src="https://code.jquery.com/jquery-2.1.1.js"></script>
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.bundle.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   <style>
   
@@ -121,7 +122,9 @@
     }
 
     input[type="text"],
-    input[type="password"] {
+    input[type="password"],
+    input[type="email"],
+    input[type="captcha"] {
       background-color: #383939 !important;
       -webkit-border-radius: 2px !important;
       border-radius: 2px !important;
@@ -233,6 +236,7 @@
     /*Main app + all sections settings*/
     .icterid-app-wrapper {
       display: flex;
+      align-items: flex-start;
       margin-left: auto;
       margin-top: 50px;
       padding-top: 20px;
@@ -373,7 +377,7 @@
     }
 
     #icterid-app-login-modal .modal-dialog {
-      height: calc(100vh - 100px) !important;
+      height: calc(100vh - 150px) !important;
       display: flex;
     }
 

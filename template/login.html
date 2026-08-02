@@ -10,7 +10,7 @@
 //  -------------------------------------------------------------
 -->
 
-<form id="icterid-app-login-modal" method="post">
+<form id="icterid-app-login-modal" method="post" autocomplete="off">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
@@ -19,18 +19,43 @@
       <div class="modal-body">
         <input type="text" name="username" placeholder="Enter username" required/>
         <input type="password" name="password" placeholder="Enter password" required/>
+        <input type="text" id="email" name="email" placeholder="Enter email" hidden disabled required/>
+        <input type="text" id="captcha" name="captcha" placeholder="Enter captcha" hidden disabled required/>
+        <input type="hidden" id="uuid" name="uuid" value="0" disabled>
         <input type="hidden" name="debug" value="0">
       </div>
       <div class="modal-footer">
-        <input type="submit" formaction="/login" id="login" value="Login" />
-        <input type="submit" formaction="/register" id="register" value="Register"/>
+        <input type="submit" id="login" formaction="/login" value="Login" />
+        <input type="submit" id="register" formaction="/register" value="Register"/>
       </div>
     </div>
   </div>
-  <script>
+  <script type="text/javascript">
     const login = document.getElementById("login");
-    const register = document.getElementById("register");
     login.formAction += window.location.search;
-    register.formAction += window.location.search;
+
+    $("#register").on("click", function() {
+      if ($("#register").val() === "Register") {
+        event.preventDefault();
+        $.ajax({
+            url : "captcha",
+            type : "GET",
+            dataType: "json",
+            success:function(data){
+              if (data !== "Error") {
+                $("#uuid").val(data.uuid);
+                $("#captcha").attr("placeholder", `What is ${data.question}?`);
+                $(".div-left").text("Register");
+                $("#email").removeAttr("disabled hidden");
+                $("#captcha").removeAttr("disabled hidden");
+                $("#uuid").removeAttr("disabled");
+                $("#register").val("Complete")
+                $("#login").remove();
+              }
+            },
+        }); 
+      }
+    })
+
   </script>
 </form>
