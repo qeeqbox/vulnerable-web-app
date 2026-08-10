@@ -136,7 +136,7 @@
     }
 
     input[type="button"],
-    input[type="submit"] {
+    input[type="submit"]{
       border: 0;
       background-color: #383939 !important;
       box-shadow: none;
@@ -146,6 +146,23 @@
       height: 26px;
       border: none;
       font-size: 12px;
+      min-width: 1px;
+    }
+
+    .contenteditable {
+          border: 0;
+          min-width: 1px !important;
+          background-color: #383939 !important;
+          box-shadow: none;
+          -webkit-border-radius: 2px !important;
+          border-radius: 2px !important;
+          color: #d0d0d0 !important;
+          border: none;
+          font-size: 12px;
+          line-height: 16px;
+          min-width: 1px;
+          overflow-y: auto; 
+          white-space: pre-wrap;
     }
 
     *:focus {
@@ -264,6 +281,14 @@
       background-color: #383939 !important
     }
 
+    .icterid-app .row-separator-line {
+      width: 100%;
+      margin-top: 12px;
+      margin-bottom: 12px;
+      height: 1px;
+      background-color: #383939 !important
+    }
+
     .icterid-app .div-right {
       flex: 1;
       margin-left: 10px !important;
@@ -334,6 +359,11 @@
     .icterid-app .div-right-icon {
       float: right;
       font-size: 16px;
+    }
+
+    .icterid-app .add-top-border {
+      margin-top: 10px;
+      border-top: 1px solid #3c3c3c;
     }
 
     /*target-section - Logon modal*/

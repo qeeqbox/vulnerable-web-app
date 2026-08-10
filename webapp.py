@@ -33,18 +33,26 @@ from functools import wraps
 from io import StringIO
 from re import sub as resub
 from uuid import uuid4
+from xml.etree.ElementTree import parse as et_parse
 
 SESSIONS = {}
 BASE_TEMPLATE = b""
 LOGIN_TEMPLATE = b""
 URL = "/"
-PATH = path.dirname(path.realpath(__file__))
 
-DATABASE = path.join(PATH,"database.db")
-EXTERNAL_FOLDER = path.join(PATH,"external")
-TEMPLATE_FOLDER = path.join(PATH,"template")
-LOGS_FOLDER = path.join(PATH,"logs")
-LOGS_FILE = path.join(LOGS_FOLDER,"httpd.log")
+print("Reading Config File", flush=True)
+PATH = path.dirname(path.realpath(__file__))
+CONFIG_ROOT = et_parse("config.xml").getroot()
+DATABASE = path.join(PATH,CONFIG_ROOT.findtext("database-file"))
+EXTERNAL_FOLDER = path.join(PATH,CONFIG_ROOT.findtext("external-folder"))
+TEMPLATE_FOLDER = path.join(PATH,CONFIG_ROOT.findtext("template-folder"))
+LOGS_FOLDER = path.join(PATH,CONFIG_ROOT.findtext("logs-folder"))
+LOGS_FILE = path.join(LOGS_FOLDER,CONFIG_ROOT.findtext("logs-file"))
+CONFIG_FILE = path.join(PATH,CONFIG_ROOT.findtext("config-file"))
+CONFIG_STYLE = path.join(TEMPLATE_FOLDER,CONFIG_ROOT.findtext("config-style"))
+
+SERVER_PORT = int(CONFIG_ROOT.findtext("port"))
+SERVER_IP = CONFIG_ROOT.findtext("ip")
 
 LOGGER = getLogger("httpd")
 rfh = RotatingFileHandler(LOGS_FILE, mode='wa', maxBytes=10*1024*1024, backupCount=5)
@@ -67,8 +75,9 @@ def convert_datetime(time):
 register_adapter(datetime, adapt_datetime_iso)
 register_converter("datetime", convert_datetime)
 
+print("Simulating Users Entering Login Credentials", flush=True)
 SALT = environ["salt"].encode("utf-8") if "salt" in environ else b""
-USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"admin@qeeqbox.local","IT","sysinfo,tickets,ping,logs,external,sql",1),
+USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"admin@qeeqbox.local","IT","sysinfo,tickets,ping,logs,external,sql,config",1),
          ("john", sha512(b"john"+SALT).hexdigest(),"john.d@qeeqbox.local","HR","tickets",0,),
          ("jane", sha512(b"jane"+SALT).hexdigest(),"jane.d@qeeqbox.local","Sales","tickets",0),
          ("joe", sha512(b"joe"+SALT).hexdigest(),"joe.d@qeeqbox.local","R&D","sysinfo,tickets,ping,external",0)]
@@ -149,28 +158,33 @@ class handler(BaseHTTPRequestHandler):
         def _render_page(f):
             @wraps(f)
             def wrapper(self, *args, **kws):
+                def handle_eval(temp_text):
+                    evaluated_text = b""
+                    start = 0
+                    while start < len(temp_text):
+                        if temp_text[start:start+2] == b"{{":
+                            end = temp_text.find(b"}}", start)
+                            if end != -1:
+                                try:
+                                    value = str(eval(temp_text[start+2:end])).encode("utf-8")
+                                except Exception:
+                                    value = temp_text[start:end+2]
+
+                                evaluated_text += value
+                                start = end + 2
+                                continue
+                        evaluated_text += temp_text[start:start+1]
+                        start += 1
+                    return evaluated_text
+
                 with open(path.join(TEMPLATE_FOLDER,file),"rb") as fi:
                     content = fi.read()
                     items = f(self, *args, **kws)
-                    for item in items:
-                        temp_text = item[1]
-                        evaluated_text = b""
-                        start = 0
-                        while start < len(temp_text):
-                            if temp_text[start:start+2] == b"{{":
-                                end = temp_text.find(b"}}", start)
-                                if end != -1:
-                                    try:
-                                        value = str(eval(temp_text[start+2:end])).encode("utf-8")
-                                    except Exception:
-                                        value = temp_text[start:end+2]
-
-                                    evaluated_text += value
-                                    start = end + 2
-                                    continue
-                            evaluated_text += temp_text[start:start+1]
-                            start += 1
-                        content = content.replace(item[0], evaluated_text)
+                    if not isinstance(items, list):
+                        content = handle_eval(items)
+                    else:
+                        for item in items:
+                            content = content.replace(item[0], handle_eval(item[1]))
                     return content
                 return b"Access Needed"
             return wrapper
@@ -282,7 +296,7 @@ class handler(BaseHTTPRequestHandler):
                 temp += f"<div>department: {profile[4]}</div>".encode("utf-8")
                 temp += f"<div>access: {profile[5]}</div>".encode("utf-8")
                 temp += f"<div>admin: {profile[6]}</div>".encode("utf-8")
-        return [((b"{{profile-results}}"),temp)]
+        return [(b"{{profile-results}}",temp)]
 
     @logged_in
     @check_access(access="sysinfo")
@@ -291,7 +305,7 @@ class handler(BaseHTTPRequestHandler):
         temp = b""
         for row in [(attr,value) for attr,value in zip(['system', 'nodename', 'release', 'version', 'root'], uname())]:
             temp += f"<div>{row[0]}: {row[1]}</div>".encode("utf-8")
-        return [((b"{{sysinfo-results}}"),temp)]
+        return [(b"{{sysinfo-results}}",temp)]
 
     @logged_in
     @check_access(access="logs")
@@ -303,7 +317,7 @@ class handler(BaseHTTPRequestHandler):
             if last_lines:
                 for row in last_lines:
                     temp += f"<div>{row.strip()}</div>".encode("utf-8")
-        return [((b"{{logs-results}}"),temp)]
+        return [(b"{{logs-results}}",temp)]
 
     @logged_in
     @check_access(access="tickets")
@@ -324,7 +338,7 @@ class handler(BaseHTTPRequestHandler):
             if results:
                 for row in reversed(results):
                     temp += f"<div>[{row[3]}] {row[1]}: {row[2]}</div>".encode("utf-8")
-        return [((b"{{tickets-results}}"),temp)]
+        return [(b"{{tickets-results}}",temp)]
 
     @logged_in
     @check_access(access="ping")
@@ -337,19 +351,40 @@ class handler(BaseHTTPRequestHandler):
             if results:
                 for row in reversed(results):
                     temp += f"<div>[{row[4]}] {row[2]} -> {row[3]}</div>".encode("utf-8")
-        return [((b"{{ping-results}}"),temp)]
+        return [(b"{{ping-results}}",temp)]
 
     @logged_in
     @check_access(access="external")
     @render_page(file="external.html")
     def external_section(self):
-        return [((b"{{external-results}}"),b"")]
+        return [(b"{{external-results}}",b"")]
 
     @logged_in
     @check_access(access="sql")
     @render_page(file="sql.html")
     def sql_section(self):
-        return [((b"{{sql-results}}"),b"")]
+        return [(b"{{sql-results}}",b"")]
+
+
+    @logged_in
+    @check_access(access="config")
+    def config_section(self):
+        ret = b""
+        try:
+            from lxml import etree
+            from html import escape
+            parser = etree.XMLParser(resolve_entities=True)
+            config = etree.parse(CONFIG_FILE, parser)
+            xsl_doc = etree.parse(CONFIG_STYLE, parser)
+            transform = etree.XSLT(xsl_doc)
+            ret = etree.tostring(transform(config), encoding="utf-8")
+            with open(CONFIG_FILE,"r") as f:
+                ret = ret.replace(b"{{config.xml}}",escape(f.read()).encode("utf-8"))
+            with open(CONFIG_STYLE,"r") as f:
+                ret = ret.replace(b"{{config.xsl}}",escape(f.read()).encode("utf-8"))
+        except Exception as e:
+            ret = str(e).encode("utf-8")
+        return ret
 
     def run_external_module(self,link=None):
         ret = b""
@@ -413,6 +448,33 @@ class handler(BaseHTTPRequestHandler):
                 cursor = connection.cursor()
                 cursor.execute("INSERT into captcha(uuid, question, answer) values(?,?,?)", (uuid, f"{number1}+{number2}",f"{number1+number2}"))
                 return dumps({"uuid":uuid,"question":f"{number1}+{number2}"}).encode('utf-8')
+        except Exception as e:
+            ret = str(e).encode("utf-8")
+        return ret
+
+    def get_config(self,id_=None):
+        ret = b""
+        try:
+            from lxml import etree
+            parser = etree.XMLParser(resolve_entities=True)
+            config = etree.parse(CONFIG_FILE, parser)
+            xsl_doc = etree.parse(CONFIG_STYLE, parser)
+            transform = etree.XSLT(xsl_doc)
+            ret = etree.tostring(transform(config), encoding="utf-8")
+        except Exception as e:
+            ret = str(e).encode("utf-8")
+        return ret
+
+    def validate_config(self,settings=False,style=False):
+        ret = b""
+        try:
+            from lxml import etree
+            parser = etree.XMLParser(resolve_entities=True)
+            print(settings, style, flush=True)
+            config = etree.fromstring(settings.encode("utf-8"), parser)
+            xsl_doc = etree.fromstring(style.encode("utf-8"), parser)
+            transform = etree.XSLT(xsl_doc)
+            ret = etree.tostring(transform(config), encoding="utf-8")
         except Exception as e:
             ret = str(e).encode("utf-8")
         return ret
@@ -533,6 +595,9 @@ class handler(BaseHTTPRequestHandler):
         elif parsed_url.path == '/captcha':
             self.send_content_raw(200, [('Content-type', 'application/json')], self.gen_captcha())
             return
+        elif parsed_url.path == '/config':
+            self.send_content_raw(200, [('Content-type', 'text/html')], self.get_config())
+            return
         else:
             self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {urllib_parse.unquote(parsed_url.path)} was not found".encode("utf-8")))
             #self.send_content(204, None, None)
@@ -589,7 +654,11 @@ class handler(BaseHTTPRequestHandler):
         elif parsed_url.path == "/change-password" and "password" in post_request_data:
             self.send_content(200, [('Content-type', 'text/html')], self.change_password(post_request_data["password"][0]))
             return
-    
+        elif parsed_url.path == "/config":
+            if "config-xml" in post_request_data or "config-xsl" in post_request_data:
+                self.send_content(200, [('Content-type', 'text/html')], self.validate_config(post_request_data["config-xml"][0],post_request_data["config-xsl"][0]))
+                return
+
         self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {parsed_url.path} was not found".encode("utf-8")))
         return
 
@@ -608,8 +677,8 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_content(500, [('Content-type', 'text/html')], self.msg_page(f"Error: Internal Server Error {str(e)}".encode("utf-8")))
 
-with ThreadingHTTPServer(('', 5142), handler) as server:
-    LOGGER.info("HTTP server is running on port 5142... \nPress Ctrl+C to stop the server")
+with ThreadingHTTPServer((SERVER_IP, SERVER_PORT), handler) as server:
+    LOGGER.info(f"HTTP server is running on port {SERVER_PORT}... \nPress Ctrl+C to stop the server")
     server.allow_reuse_address = True
     try:
         server.serve_forever()
