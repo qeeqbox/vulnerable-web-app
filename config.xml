@@ -2,6 +2,7 @@
 <config>
     <port>5142</port>
     <ip>0.0.0.0</ip>
+    <edit>false</edit>
     <database-file>database.db</database-file>
     <external-folder>external</external-folder>
     <template-folder>template</template-folder>
@@ -10,4 +11,5 @@
     <config-folder>config</config-folder>
     <config-file>config.xml</config-file>
     <config-style>config.xsl</config-style>
+    <timezone>America/Los_Angeles</timezone>
 </config>

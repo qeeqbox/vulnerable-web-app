@@ -34,6 +34,8 @@ from io import StringIO
 from re import sub as resub
 from uuid import uuid4
 from xml.etree.ElementTree import parse as et_parse
+from zoneinfo import ZoneInfo
+from pickle import load as pickle_load
 
 SESSIONS = {}
 BASE_TEMPLATE = b""
@@ -50,6 +52,7 @@ LOGS_FOLDER = path.join(PATH,CONFIG_ROOT.findtext("logs-folder"))
 LOGS_FILE = path.join(LOGS_FOLDER,CONFIG_ROOT.findtext("logs-file"))
 CONFIG_FILE = path.join(PATH,CONFIG_ROOT.findtext("config-file"))
 CONFIG_STYLE = path.join(TEMPLATE_FOLDER,CONFIG_ROOT.findtext("config-style"))
+TIMEZONE = CONFIG_ROOT.findtext("timezone")
 
 SERVER_PORT = int(CONFIG_ROOT.findtext("port"))
 SERVER_IP = CONFIG_ROOT.findtext("ip")
@@ -66,15 +69,6 @@ with suppress(Exception):
     LOGGER.info("Deleting old database.db")
     remove(DATABASE)
 
-def adapt_datetime_iso(time):
-    return time.isoformat()
-
-def convert_datetime(time):
-    return datetime.fromisoformat(val.decode())
-
-register_adapter(datetime, adapt_datetime_iso)
-register_converter("datetime", convert_datetime)
-
 print("Simulating Users Entering Login Credentials", flush=True)
 SALT = environ["salt"].encode("utf-8") if "salt" in environ else b""
 USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"admin@qeeqbox.local","IT","sysinfo,tickets,ping,logs,external,sql,config",1),
@@ -84,13 +78,24 @@ USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"admin@qeeqbox.local","IT",
 TICKETS = [("john","IT, could you please help Joe Doe log into VPN"),
           ("jane","IT, we are unable to access the \\\\SALES")]
 
+def return_time_zone_sql(zone):
+    with suppress(Exception):
+        h = datetime.now(ZoneInfo(zone))
+        h = h.utcoffset().total_seconds() / 3600
+        timezone = f"{'+' if h >= 0 else ''}{h:g} hours"
+        print(f"Database Timezone to {zone} ({timezone})", flush=True)
+        return f"{'+' if h >= 0 else ''}{h:g} hours"
+    print(f"Database Timezone to GMT (0 hours)", flush=True)
+    return "0 hours"
+
 with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
+    zone = return_time_zone_sql(TIMEZONE)
     LOGGER.info("Creating new database.db")
     cursor = connection.cursor()
-    cursor.execute("CREATE TABLE users (id integer PRIMARY KEY, username text, hash text, email text, department text, access text, is_admin BOOLEAN DEFAULT 0 NOT NULL, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
-    cursor.execute("CREATE TABLE tickets (id integer PRIMARY KEY, username text, ticket text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
-    cursor.execute("CREATE TABLE ping (id integer PRIMARY KEY, username text, ping text, output text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
-    cursor.execute("CREATE TABLE captcha (id integer PRIMARY KEY, uuid text, question text, answer text, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);")
+    cursor.execute(f"CREATE TABLE users (id integer PRIMARY KEY, username text, hash text, email text, department text, access text, is_admin BOOLEAN DEFAULT 0 NOT NULL, timestamp TIMESTAMP DEFAULT (datetime('now', '{zone}')) NOT NULL);")
+    cursor.execute(f"CREATE TABLE tickets (id integer PRIMARY KEY, username text, ticket text, timestamp TIMESTAMP DEFAULT (datetime('now', '{zone}')) NOT NULL);")
+    cursor.execute(f"CREATE TABLE ping (id integer PRIMARY KEY, username text, ping text, output text, timestamp TIMESTAMP DEFAULT (datetime('now', '{zone}')) NOT NULL);")
+    cursor.execute(f"CREATE TABLE captcha (id integer PRIMARY KEY, uuid text, question text, answer text, timestamp TIMESTAMP DEFAULT (datetime('now', '{zone}')) NOT NULL);")
     cursor.executemany("INSERT into users(username, hash, email, department, access, is_admin) values(?,?,?,?,?,?)", USERS)
     cursor.executemany("INSERT into tickets(username, ticket) values(?,?)", TICKETS)
 
@@ -373,15 +378,18 @@ class handler(BaseHTTPRequestHandler):
         try:
             from lxml import etree
             from html import escape
+            def python_function(context, function_name, argument):
+                if function_name == "read":
+                    with open(path.join(PATH,argument),"r") as f:
+                        return f.read()
+                raise ValueError("Unsupported function")
+            ns = etree.FunctionNamespace("http://qeeqbox.com/python")
+            ns["function"] = python_function
             parser = etree.XMLParser(resolve_entities=True)
             config = etree.parse(CONFIG_FILE, parser)
             xsl_doc = etree.parse(CONFIG_STYLE, parser)
             transform = etree.XSLT(xsl_doc)
             ret = etree.tostring(transform(config), encoding="utf-8")
-            with open(CONFIG_FILE,"r") as f:
-                ret = ret.replace(b"{{config.xml}}",escape(f.read()).encode("utf-8"))
-            with open(CONFIG_STYLE,"r") as f:
-                ret = ret.replace(b"{{config.xsl}}",escape(f.read()).encode("utf-8"))
         except Exception as e:
             ret = str(e).encode("utf-8")
         return ret
@@ -458,9 +466,7 @@ class handler(BaseHTTPRequestHandler):
             from lxml import etree
             parser = etree.XMLParser(resolve_entities=True)
             config = etree.parse(CONFIG_FILE, parser)
-            xsl_doc = etree.parse(CONFIG_STYLE, parser)
-            transform = etree.XSLT(xsl_doc)
-            ret = etree.tostring(transform(config), encoding="utf-8")
+            ret = etree.tostring(config, encoding="utf-8", xml_declaration=True)
         except Exception as e:
             ret = str(e).encode("utf-8")
         return ret
@@ -470,11 +476,23 @@ class handler(BaseHTTPRequestHandler):
         try:
             from lxml import etree
             parser = etree.XMLParser(resolve_entities=True)
-            print(settings, style, flush=True)
             config = etree.fromstring(settings.encode("utf-8"), parser)
             xsl_doc = etree.fromstring(style.encode("utf-8"), parser)
             transform = etree.XSLT(xsl_doc)
             ret = etree.tostring(transform(config), encoding="utf-8")
+        except Exception as e:
+            ret = str(e).encode("utf-8")
+        return ret
+
+    def update_config(self,timezone):
+        ret = b""
+        try:
+            ret = b""
+            with open(CONFIG_FILE, "rb") as f:
+                ret = f.read()
+            updated_content = resub(b"<timezone>.*?</timezone>", timezone.encode("utf-8"), ret)
+            with open(CONFIG_FILE, "wb") as f:
+                f.write(updated_content)
         except Exception as e:
             ret = str(e).encode("utf-8")
         return ret
@@ -562,9 +580,9 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(content)
 
     def do_GET(self):
+        self.session = self.check_logged_in()
         parsed_url = urllib_parse.urlparse(self.path)
         get_request_data = urllib_parse.parse_qs(parsed_url.query)
-        self.session = self.check_logged_in()
         if parsed_url.path == "/" or parsed_url.path == "/home" or parsed_url.path == "/login":
             if self.session:
                 self.send_content(200, [('Content-type', 'text/html')], self.render_home_page()) 
@@ -596,7 +614,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_content_raw(200, [('Content-type', 'application/json')], self.gen_captcha())
             return
         elif parsed_url.path == '/config':
-            self.send_content_raw(200, [('Content-type', 'text/html')], self.get_config())
+            self.send_content_raw(200, [('Content-type', 'text/xml')], self.get_config())
             return
         else:
             self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {urllib_parse.unquote(parsed_url.path)} was not found".encode("utf-8")))
@@ -604,11 +622,11 @@ class handler(BaseHTTPRequestHandler):
             return
 
     def do_POST(self):
+        self.session = self.check_logged_in()
         parsed_url = urllib_parse.urlparse(self.path)
         post_request_data_length = int(self.headers.get('content-length'))
         post_request_data = urllib_parse.parse_qs(str(self.rfile.read(post_request_data_length),"UTF-8"))
         query_request_data = urllib_parse.parse_qs(parsed_url.query)
-        self.session = self.check_logged_in()
         if parsed_url.path == "/login" and "username" in post_request_data and "password" in post_request_data:
             ret = self.check_creds(post_request_data['username'][0],post_request_data['password'][0])
             if isinstance(ret, list) and ret[0] == "valid":
@@ -655,9 +673,11 @@ class handler(BaseHTTPRequestHandler):
             self.send_content(200, [('Content-type', 'text/html')], self.change_password(post_request_data["password"][0]))
             return
         elif parsed_url.path == "/config":
-            if "config-xml" in post_request_data or "config-xsl" in post_request_data:
+            if "config-xml" in post_request_data and "config-xsl" in post_request_data:
                 self.send_content(200, [('Content-type', 'text/html')], self.validate_config(post_request_data["config-xml"][0],post_request_data["config-xsl"][0]))
                 return
+            if "config-timezone" in post_request_data:
+                self.send_content(200, [('Content-type', 'text/html')], self.update_config(post_request_data["config-timezone"][0]))
 
         self.send_content(404, [('Content-type', 'text/html')], self.msg_page(f"Error: The requested URL {parsed_url.path} was not found".encode("utf-8")))
         return
