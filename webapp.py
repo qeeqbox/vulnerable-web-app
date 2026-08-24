@@ -475,6 +475,13 @@ class handler(BaseHTTPRequestHandler):
         ret = b""
         try:
             from lxml import etree
+            def python_function(context, function_name, argument):
+                if function_name == "read":
+                    with open(path.join(PATH,argument),"r") as f:
+                        return f.read()
+                raise ValueError("Unsupported function")
+            ns = etree.FunctionNamespace("http://qeeqbox.com/python")
+            ns["function"] = python_function
             parser = etree.XMLParser(resolve_entities=True)
             config = etree.fromstring(settings.encode("utf-8"), parser)
             xsl_doc = etree.fromstring(style.encode("utf-8"), parser)
