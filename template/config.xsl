@@ -43,7 +43,8 @@
                         data: {"config-xml":settings,"config-xsl":style},
                         success:function(data){
                           if (data !== 'Error') {
-                            $('#Settings-results').html(data)
+                            $results = $(data).find('#Settings-results');
+                            $('#Settings-results').empty().html($results.html());
                           }
                         },
                     }); 
