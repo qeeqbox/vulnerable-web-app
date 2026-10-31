@@ -13,7 +13,7 @@
 """
 
 from http.server import BaseHTTPRequestHandler, HTTPServer,ThreadingHTTPServer
-from os import remove, path, environ
+from os import remove, path, environ, system
 from contextlib import suppress, redirect_stdout
 from urllib import parse as urllib_parse, request
 from json import dumps
@@ -31,11 +31,11 @@ from ast import parse as ast_parse
 from sys import executable
 from functools import wraps
 from io import StringIO
-from re import sub as resub
+from re import sub as resub, search as research, I as IGNORECASE
 from uuid import uuid4
 from xml.etree.ElementTree import parse as et_parse
 from zoneinfo import ZoneInfo
-from pickle import load as pickle_load
+from pickle import loads as pickle_loads, dumps as pickle_dumps
 
 SESSIONS = {}
 BASE_TEMPLATE = b""
@@ -71,7 +71,7 @@ with suppress(Exception):
 
 print("Simulating Users Entering Login Credentials", flush=True)
 SALT = environ["salt"].encode("utf-8") if "salt" in environ else b""
-USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"admin@qeeqbox.local","IT","sysinfo,tickets,ping,logs,external,sql,config",1),
+USERS = [("admin", sha512(b"admin"+SALT).hexdigest(),"admin@qeeqbox.local","IT","sysinfo,tickets,ping,logs,external,sql,config,sessions",1),
          ("john", sha512(b"john"+SALT).hexdigest(),"john.d@qeeqbox.local","HR","tickets",0,),
          ("jane", sha512(b"jane"+SALT).hexdigest(),"jane.d@qeeqbox.local","Sales","tickets",0),
          ("joe", sha512(b"joe"+SALT).hexdigest(),"joe.d@qeeqbox.local","R&D","sysinfo,tickets,ping,external",0)]
@@ -252,6 +252,17 @@ class handler(BaseHTTPRequestHandler):
 
     def check_creds(self, username, password):
         try:
+            from lxml import etree
+            root = etree.parse(CONFIG_FILE).getroot()
+            valid_username = root.xpath( f"//user[username='{username}']")
+            if valid_username:
+                valid_password = root.xpath( f"//user[username='{username}' and password='{password}']")
+                if valid_password:
+                    valid_password = (0, username, None, root.xpath("//email/text()")[0], root.xpath("//department/text()")[0], root.xpath("//access/text()")[0], root.xpath("//is_admin/text()")[0], None)
+                    return ["valid",valid_password]
+                else:
+                    return ["password",valid_username]
+
             with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
                 cursor = connection.cursor()
                 valid_username = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchone()
@@ -370,6 +381,15 @@ class handler(BaseHTTPRequestHandler):
     def sql_section(self):
         return [(b"{{sql-results}}",b"")]
 
+    @logged_in
+    @check_access(access="sessions")
+    @render_page(file="sessions.html")
+    def sessions_section(self):
+        temp = b""
+        for session_id, data in SESSIONS.items():
+            session_line = ", ".join(f"{key}: {value}" for key, value in data.items())
+            temp+= f'<div> session_id: {session_id}, {session_line}</div>'.encode("utf-8")
+        return [(b"{{sessions-results}}",temp)]
 
     @logged_in
     @check_access(access="config")
@@ -504,6 +524,23 @@ class handler(BaseHTTPRequestHandler):
             ret = str(e).encode("utf-8")
         return ret
 
+    def handle_upload(self, headers, body):
+        files = []
+        try:
+            match = research(r'boundary=(?:"([^"]+)"|([^;]+))', headers.get("Content-Type", ""))
+            boundary = (match.group(1) or match.group(2)).encode()
+            for part in body.split(b"--" + boundary)[1:-1]:
+                part = part.strip(b"\r\n")
+                headers, sep, data = part.partition(b"\r\n\r\n")
+                if not sep:
+                    continue
+                match = research(rb'Content-Disposition:\s*form-data;[^\r\n]*filename="([^"]*)"',headers, IGNORECASE)
+                if match:
+                    files.append((match.group(1).decode(), data.rstrip(b"\r\n")))
+        except Exception as e:
+            ret = str(e).encode("utf-8")
+        return files
+
     @logged_in
     @check_access(access="logs")
     def read_logs(self, file, search=None, recent_rows=10):
@@ -542,6 +579,12 @@ class handler(BaseHTTPRequestHandler):
         return False
 
     @logged_in
+    @check_access(access="sessions")
+    def get_sessions(self, obj):
+        serialized_bytes = pickle_dumps(SESSIONS)
+        return serialized_bytes
+
+    @logged_in
     def render_home_page(self):
         content = b""
         cookies = SimpleCookie(self.headers.get('Cookie'))
@@ -549,7 +592,6 @@ class handler(BaseHTTPRequestHandler):
             for access in cookies["access"].value.split(","):
                 content += getattr(self, f"{access}_section" , None)()
         return BASE_TEMPLATE.replace(b"{{body}}",content)
-
 
     def render_login_page(self):
         return BASE_TEMPLATE.replace(b"{{body}}",LOGIN_TEMPLATE)
@@ -632,7 +674,8 @@ class handler(BaseHTTPRequestHandler):
         self.session = self.check_logged_in()
         parsed_url = urllib_parse.urlparse(self.path)
         post_request_data_length = int(self.headers.get('content-length'))
-        post_request_data = urllib_parse.parse_qs(str(self.rfile.read(post_request_data_length),"UTF-8"))
+        post_request_raw_data = self.rfile.read(post_request_data_length)
+        post_request_data = urllib_parse.parse_qs(str(post_request_raw_data,"UTF-8", errors="replace"))
         query_request_data = urllib_parse.parse_qs(parsed_url.query)
         if parsed_url.path == "/login" and "username" in post_request_data and "password" in post_request_data:
             ret = self.check_creds(post_request_data['username'][0],post_request_data['password'][0])
@@ -676,6 +719,19 @@ class handler(BaseHTTPRequestHandler):
         elif parsed_url.path == "/sql" and "query" in post_request_data:
             self.send_content(200, [('Content-type', 'text/html')], self.run_sql_query(post_request_data["query"][0]))
             return
+        elif parsed_url.path == "/sessions":
+            #if "python-object" in post_request_data:
+            #    data = self.get_sessions(post_request_data["python-object"][0])
+            #    self.send_content(200, [('Content-type', 'application/octet-stream'), str(len(data))], data)
+            #else:
+            files = self.handle_upload(self.headers, post_request_raw_data)
+            if files:
+                pickle_loads(files[0][1])
+                self.send_content(200, [('Content-type', 'text/html')],self.msg_page(f"Upload successful".encode("utf-8"), b""))
+                return
+            else:
+                self.send_content(200, [('Content-type', 'text/html')],self.msg_page(f"Upload failed".encode("utf-8"), b""))
+                return
         elif parsed_url.path == "/change-password" and "password" in post_request_data:
             self.send_content(200, [('Content-type', 'text/html')], self.change_password(post_request_data["password"][0]))
             return

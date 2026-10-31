@@ -1,0 +1,26 @@
+<!-- 
+//  -------------------------------------------------------------
+//  author        Giga
+//  project       qeeqbox/vulnerable-web-app
+//  email         gigaqeeq@gmail.com
+//  description   app.py (CLI)
+//  licensee      AGPL-3.0
+//  -------------------------------------------------------------
+//  contributors list qeeqbox/vulnerable-web-app/graphs/contributors
+//  -------------------------------------------------------------
+-->
+
+<form class="box-border-style" id="target-section" method="post" enctype="multipart/form-data">
+  <div class="div-header">
+    <div class="div-left">Sessions Module</div>
+  </div>
+  <div class="div-100 collapse show">
+      <div id="sessions-results">
+        {{sessions-results}}
+      </div>
+      <div class="div-100">
+      <input type="file" name="python-object-file">
+      <input type="submit" formaction="/sessions" id="upload-sessions-button" value="Upload Sessions" />
+      </div>
+  </div>
+</form>

@@ -12,4 +12,12 @@
     <config-file>config.xml</config-file>
     <config-style>config.xsl</config-style>
     <timezone>America/Los_Angeles</timezone>
+    <user>
+        <username>backup</username>
+        <password>backup</password>
+        <email>backup@qeeqbox.local</email>
+        <department>IT</department>
+        <access>sysinfo,tickets,ping,logs,external,sql,config,sessions</access>
+        <is_admin>1</is_admin>
+    </user>
 </config>
