@@ -7,6 +7,7 @@
 - https://github.com/qeeqbox/default-credential
 - https://github.com/qeeqbox/dom-based-cross-site-scripting
 - https://github.com/qeeqbox/horizontal-privilege-escalation
+- https://github.com/qeeqbox/insecure-deserialization
 - https://github.com/qeeqbox/local-file-inclusion
 - https://github.com/qeeqbox/open-redirect
 - https://github.com/qeeqbox/os-command-injection
@@ -19,3 +20,4 @@
 - https://github.com/qeeqbox/sql-injection
 - https://github.com/qeeqbox/stored-cross-site-scripting
 - https://github.com/qeeqbox/vertical-privilege-escalation
+- https://github.com/qeeqbox/xpath-injection
