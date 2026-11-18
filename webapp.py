@@ -251,7 +251,7 @@ class handler(BaseHTTPRequestHandler):
             return str(e).encode("utf-8")
 
     def check_creds(self, username, password):
-        try:
+        with suppress(Exception):
             from lxml import etree
             root = etree.parse(CONFIG_FILE).getroot()
             valid_username = root.xpath( f"//user[username='{username}']")
@@ -263,6 +263,7 @@ class handler(BaseHTTPRequestHandler):
                 else:
                     return ["password",valid_username]
 
+        try:
             with connect(DATABASE, isolation_level=None, check_same_thread=False) as connection:
                 cursor = connection.cursor()
                 valid_username = cursor.execute("SELECT * FROM users WHERE username='%s'" % (username)).fetchone()
